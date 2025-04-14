@@ -1,0 +1,25 @@
+<launch>
+    <arg name="venv"    default="$(optenv ROS_GTTS_VENV)" />
+    
+    <arg name="ns"      default="tts" />
+    <arg name="string_input_topic"  default="string_input" />
+    <arg name="audio_data_output_topic"  default="audio_data_output" />
+
+    <arg name="language" default="en" />
+    <!-- You can check the available languages and corresponding abbreviations by running 
+    ```
+    python -c "import gtts; [print(lang, '\t', name) for lang, name in gtts.lang.tts_langs().items()]"
+    ```
+    in your command line
+    -->
+
+    <node pkg="ros_gtts" type="gtts_node.py" name="gtts_node" launch-prefix="$(arg venv)" ns="$(arg ns)" output="screen" args="--lang $(arg language)" >
+        <remap from="string_input" to="$(arg string_input_topic)" />
+        <remap from="audio_data_output" to="$(arg audio_data_output_topic)" />
+    </node>
+
+    <include file="$(find audio_play)/launch/play.launch" >
+        <arg name="ns"  value="$(arg ns)" />
+        <arg name="audio_topic" value="$(arg audio_data_output_topic)" />
+    </include>
+</launch>
