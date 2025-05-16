@@ -29,11 +29,28 @@ class TTSNode:
         audio_buffer = io.BytesIO()
         tts.write_to_fp(audio_buffer)
         audio_buffer.seek(0)  # rewind buffer
-        
+        # Estimate length of audio
+        sample_rate = 16000
+        channels = 1
+        duration = len(audio_buffer.getvalue()) / (sample_rate * channels)
+        #rospy.loginfo("Estimated duration of audio: {} seconds".format(duration))
+        # TODO. Get sample rate from audio info
+        # Update state
+        self.is_speaking = True
         # Publish as AudioData
         audio_msg = AudioData()
         audio_msg.data = audio_buffer.read()
         self.audio_data_pub.publish(audio_msg)
+        # Set timer to reset `is_speaking`
+        # TODO. Understand why the duration computed above is half of the actual one... Data format reason?
+        self.is_speaking_timer = rospy.Timer(rospy.Duration(duration*2 + 2.0), 
+                                             self.is_speaking_timeout,
+                                             oneshot=True
+                                             )
+    
+    def is_speaking_timeout(self, event):
+        self.is_speaking = False
+        self.is_speaking_timer.shutdown()
 
 if __name__ == "__main__":
     parser=argparse.ArgumentParser(
@@ -45,8 +62,10 @@ if __name__ == "__main__":
     rospy.init_node("gtts_node")
     args = parser.parse_args(rospy.myargv()[1:])
     tts_node = TTSNode(language=args.language)
+    r = rospy.Rate(10)  # 10hz
     try:
         while not rospy.is_shutdown():
-            pass
+            tts_node.is_speaking_pub.publish(Bool(tts_node.is_speaking))
+            r.sleep()
     except KeyboardInterrupt:
-        print("Shutting down on user request...")
+        rospy.loginfo("Shutting down on user request...")
